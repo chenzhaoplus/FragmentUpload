@@ -1,6 +1,5 @@
 package com.example.demo.upload.controller;
 
-
 import com.example.demo.upload.entity.FileDTO;
 import com.example.demo.upload.service.FileService;
 import com.example.demo.upload.utils.Result;
@@ -17,6 +16,10 @@ import java.io.*;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * 分片上传 参考：
+ * https://www.jb51.net/article/190808.htm
+ */
 @Controller
 @RequestMapping("/file")
 @Slf4j
@@ -94,7 +97,7 @@ public class FileController {
         //保存的时候 去处理一下 这个逻辑
         fileService.save(file1);
         //判断当前是不是最后一个分页 如果不是就继续等待其他分页  合并分页
-        if(shardIndex .equals(shardTotal) ){
+        if(shardIndex.equals(shardTotal) ){
             file1.setPath(basePath+fileName);
             this.merge(file1);
         }

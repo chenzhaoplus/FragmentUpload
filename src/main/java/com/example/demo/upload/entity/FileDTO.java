@@ -23,7 +23,7 @@ public class FileDTO {
     /**
     * 文件名
     */
-    private String name;
+    private String originName;
 
     /**
     * 后缀

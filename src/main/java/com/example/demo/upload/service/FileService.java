@@ -23,6 +23,7 @@ public class FileService {
         List<FileDTO> fileDTOS = fileMapper.selectList(lambda);
         //如果存在就话就修改
         if(fileDTOS.size()!=0){
+            file1.setUpdatedAt(System.currentTimeMillis());
             //根据key来修改
             LambdaQueryWrapper<FileDTO> lambda1 = new QueryWrapper<FileDTO>().lambda();
             lambda1.eq(FileDTO::getFileKey,file1.getFileKey());
@@ -30,6 +31,7 @@ public class FileService {
         }else
         {
             //不存在就添加
+            file1.setCreatedAt(System.currentTimeMillis());
             fileMapper.insert(file1);
         }
     }

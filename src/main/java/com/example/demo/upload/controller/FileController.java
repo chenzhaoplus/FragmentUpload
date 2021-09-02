@@ -19,6 +19,9 @@ import java.util.UUID;
 /**
  * 分片上传 参考：
  * https://www.jb51.net/article/190808.htm
+ *
+ * 访问路径：
+ * http://localhost:8000/file/show
  */
 @Controller
 @RequestMapping("/file")
@@ -35,12 +38,13 @@ public class FileController {
     private String basePath;
 
     @RequestMapping("/show")
-    public String show(){
+    public String show() {
         return "file";
     }
 
     /**
      * 上传
+     *
      * @param file
      * @param suffix
      * @param shardIndex
@@ -59,14 +63,15 @@ public class FileController {
                          Long shardIndex,
                          Long shardSize,
                          Long shardTotal,
+                         String originName,
                          Long size,
                          String key
-                         ) throws IOException, InterruptedException {
+    ) throws IOException, InterruptedException {
         log.info("上传文件开始");
         //文件的名称
-        String name = UUID.randomUUID().toString().replaceAll("-", "");
+        //String name = UUID.randomUUID().toString().replaceAll("-", "");
         // 获取文件的扩展名
-        String ext = FilenameUtils.getExtension(file.getOriginalFilename());
+        //String ext = FilenameUtils.getExtension(file.getOriginalFilename());
 
         //设置图片新的名字
         String fileName = new StringBuffer().append(key).append(".").append(suffix).toString(); // course\6sfSqfOwzmik4A4icMYuUe.mp4
@@ -77,18 +82,16 @@ public class FileController {
                 .toString(); // course\6sfSqfOwzmik4A4icMYuUe.mp4.1
 
         // 以绝对路径保存重名命后的图片
-        File targeFile=new File(basePath,localfileName);
+        File targeFile = new File(basePath, localfileName);
         //上传这个图片
         file.transferTo(targeFile);
         //数据库持久化这个数据
-        FileDTO file1=new FileDTO();
-        file1.setPath(basePath+localfileName);
+        FileDTO file1 = new FileDTO();
+        file1.setPath(basePath + localfileName);
         file1.setSuffix(suffix);
-        file1.setName(name);
-        file1.setSuffix(ext);
+        file1.setName(originName);
+        //file1.setSuffix(ext);
         file1.setSize(size);
-        file1.setCreatedAt(System.currentTimeMillis());
-        file1.setUpdatedAt(System.currentTimeMillis());
         file1.setShardIndex(shardIndex);
         file1.setShardSize(shardSize);
         file1.setShardTotal(shardTotal);
@@ -97,8 +100,8 @@ public class FileController {
         //保存的时候 去处理一下 这个逻辑
         fileService.save(file1);
         //判断当前是不是最后一个分页 如果不是就继续等待其他分页  合并分页
-        if(shardIndex.equals(shardTotal) ){
-            file1.setPath(basePath+fileName);
+        if (shardIndex.equals(shardTotal)) {
+            file1.setPath(basePath + fileName);
             this.merge(file1);
         }
         return "上传成功";
@@ -106,11 +109,11 @@ public class FileController {
 
     @RequestMapping("/check")
     @ResponseBody
-    public Result check(String key){
+    public Result check(String key) {
         List<FileDTO> check = fileService.check(key);
         //如果这个key存在的话 那么就获取上一个分片去继续上传
-        if(check.size()!=0){
-            return Result.ok("查询成功",check.get(0));
+        if (check.size() != 0) {
+            return Result.ok("查询成功", check.get(0));
         }
         return Result.fail("查询失败,可以添加");
     }
@@ -125,10 +128,10 @@ public class FileController {
         log.info("分片合并开始");
         String path = fileDTO.getPath(); //获取到的路径 没有.1 .2 这样的东西
         //截取视频所在的路径
-        path = path.replace(basePath,"");
-        Long shardTotal= fileDTO.getShardTotal();
-        File newFile = new File(basePath + path);
-        FileOutputStream outputStream = new FileOutputStream(newFile,true); // 文件追加写入
+        path = path.replace(basePath, "");
+        Long shardTotal = fileDTO.getShardTotal();
+        File newFile = new File(basePath + fileDTO.getName());
+        FileOutputStream outputStream = new FileOutputStream(newFile, true); // 文件追加写入
         FileInputStream fileInputStream = null; //分片文件
         byte[] byt = new byte[10 * 1024 * 1024];
         int len;

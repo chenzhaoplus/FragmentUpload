@@ -41,6 +41,7 @@
        var key62 = Tool._10to62(key10);
        //前面的参数必须和controller层定义的一样
        fd.append('file',fileShard);
+       fd.append('originName', file.name);
        fd.append('suffix',suffix);
        fd.append('shardIndex',shardIndex);
        fd.append('shardSize',shardSize);

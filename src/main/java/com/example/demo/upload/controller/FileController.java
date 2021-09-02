@@ -152,7 +152,7 @@ public class FileController {
             return false;
         }
         log.info("分片结束了");
-        return true;
+        return newFile.exists();
     }
 
     private void deleteShards(FileDTO fileDTO) {

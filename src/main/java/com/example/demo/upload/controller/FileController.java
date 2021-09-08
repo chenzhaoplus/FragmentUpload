@@ -2,8 +2,13 @@ package com.example.demo.upload.controller;
 
 import com.example.demo.upload.entity.FileDTO;
 import com.example.demo.upload.service.FileService;
+import com.example.demo.upload.utils.FileUtils;
 import com.example.demo.upload.utils.Result;
+import io.minio.ComposeSource;
+import io.minio.MinioClient;
+import io.minio.PutObjectOptions;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.Validate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
@@ -11,10 +16,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
+import java.io.*;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -33,6 +36,9 @@ public class FileController {
     FileService fileService;
 
     public static final String BUSINESS_NAME = "普通分片上传";
+
+    @Autowired(required = false)
+    private MinioClient minioClient;
 
     // 设置图片上传路径
     @Value("${file.basepath}")
@@ -67,7 +73,7 @@ public class FileController {
                          String originName,
                          Long size,
                          String key
-    ) throws IOException, InterruptedException {
+    ) throws Exception {
         log.info("上传文件开始");
         //设置图片新的名字
         String fileName = new StringBuffer().append(key).append(".").append(suffix).toString(); // course\6sfSqfOwzmik4A4icMYuUe.mp4
@@ -94,12 +100,57 @@ public class FileController {
         //插入到数据库中
         //保存的时候 去处理一下 这个逻辑
         fileService.save(file1);
+
+        //mino合并文件方式
+        //String upPath = "/webbackmanage/video/" + localfileName;
+        //uploadShardFile(file1, upPath);
+        //if (shardIndex.equals(shardTotal)) {
+        //    String bucketName = FileUtils.getRootByPath(upPath);
+        //    String objectName = FileUtils.exceptRootByPath(upPath);
+        //    List<ComposeSource> sourceObjectList = new ArrayList<ComposeSource>();
+        //    for (int i = 1; i <= shardTotal; i++) {
+        //        sourceObjectList.add(new ComposeSource(bucketName, "/video/" + fileName + "." + i));
+        //    }
+        //    minioClient.composeObject(bucketName, "/video/test.mp4", sourceObjectList, null, null);
+        //}
+
         //判断当前是不是最后一个分页 如果不是就继续等待其他分页  合并分页
+        //流合并文件方式
         if (shardIndex.equals(shardTotal)) {
             file1.setPath(basePath + fileName);
             this.mergeShards(file1);
         }
+
         return "上传成功";
+    }
+
+    private void uploadShardFile(FileDTO fileShard, String upPath) {
+        String bucketName = FileUtils.getRootByPath(upPath);
+        String objectName = FileUtils.exceptRootByPath(upPath);
+        Validate.notBlank(bucketName, "参数 bucketName 不能为空");
+        Validate.notBlank(objectName, "参数 objectName 不能为空");
+        //objectName = FileUtils.fileNameWithTime(objectName);
+        File newFile = new File(fileShard.getPath());
+        //File newFile = new File(upPath);
+        try (FileInputStream fis = new FileInputStream(newFile)) {
+            boolean ret = putObject(bucketName, objectName, fis, null);
+            if (!ret) {
+                throw new Exception("minio put object failed, file path = " + fileShard.getPath());
+            }
+            if (newFile.exists()) {
+                newFile.delete();
+            }
+            fileShard.setPath(String.format("/%s%s", bucketName, objectName));
+            fileService.save(fileShard);
+        } catch (Exception e) {
+            log.error("上传合并文件失败：{}", e);
+        }
+    }
+
+    private boolean putObject(String bucketName, String objectName, InputStream stream, String contentType) throws Exception {
+        PutObjectOptions putObjectOptions = new PutObjectOptions(stream.available(), -1);
+        minioClient.putObject(bucketName, objectName, stream, putObjectOptions);
+        return true;
     }
 
     @RequestMapping("/check")
